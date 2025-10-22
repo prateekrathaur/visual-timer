@@ -1,0 +1,555 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Visual Timer</title>
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#ff4d4f">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+  :root { 
+    --bg: #0a0a0f; 
+    --fg: #e9e9ee; 
+    --muted: #9aa0a6; 
+    --accent: #ff4d4f; 
+    --accent-hover: #ff6b6d;
+    --track: #2a2d34; 
+    --face: #14161b;
+    --card-bg: rgba(255,255,255,.04);
+    --card-border: rgba(255,255,255,.08);
+    --input-bg: rgba(0,0,0,.2);
+    --shadow: rgba(0,0,0,.3);
+  }
+  @media (prefers-color-scheme: light) {
+    :root { 
+      --bg: #f5f6fa; 
+      --fg: #101114; 
+      --muted: #60646e; 
+      --accent: #e53935; 
+      --accent-hover: #c62828;
+      --track: #e7e9ee; 
+      --face: #ffffff;
+      --card-bg: #ffffff;
+      --card-border: rgba(0,0,0,.06);
+      --input-bg: rgba(0,0,0,.02);
+      --shadow: rgba(0,0,0,.08);
+    }
+  }
+  
+  * { box-sizing: border-box; }
+  
+  html, body { height: 100%; margin: 0; }
+  
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font: 16px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    -webkit-font-smoothing: antialiased;
+  }
+  
+  .app {
+    width: 100%;
+    max-width: 480px;
+  }
+  
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 24px;
+    padding: 32px;
+    backdrop-filter: blur(20px) saturate(1.4);
+    box-shadow: 0 8px 32px var(--shadow);
+    transition: transform .2s ease;
+  }
+  
+  .timer-display {
+    text-align: center;
+    margin-bottom: 24px;
+  }
+  
+  .timer-readout {
+    font-size: clamp(40px, 10vw, 64px);
+    font-weight: 800;
+    letter-spacing: .02em;
+    font-variant-numeric: tabular-nums;
+    margin: 0;
+    background: linear-gradient(135deg, var(--fg) 0%, var(--muted) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    transition: opacity .2s ease;
+  }
+  
+  .timer-readout.running {
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  canvas {
+    width: 100%;
+    height: auto;
+    display: block;
+    margin: 0 auto 32px;
+    filter: drop-shadow(0 4px 16px var(--shadow));
+    transition: transform .2s ease;
+  }
+  
+  canvas:active {
+    transform: scale(.98);
+  }
+  
+  .inputs {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  
+  .input-group {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .input-group label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--muted);
+    margin-bottom: 8px;
+    text-align: center;
+  }
+  
+  input[type=number] {
+    width: 100%;
+    padding: 14px 8px;
+    border-radius: 12px;
+    border: 2px solid var(--track);
+    background: var(--input-bg);
+    color: var(--fg);
+    font-size: 20px;
+    font-weight: 700;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    transition: all .2s ease;
+    -moz-appearance: textfield;
+  }
+  
+  input[type=number]:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: var(--input-bg);
+    transform: translateY(-1px);
+  }
+  
+  input::-webkit-outer-spin-button,
+  input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  
+  .controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  
+  button {
+    flex: 1;
+    padding: 14px 20px;
+    border-radius: 14px;
+    border: 2px solid var(--track);
+    background: var(--input-bg);
+    color: var(--fg);
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 15px;
+    transition: all .15s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  
+  button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px var(--shadow);
+  }
+  
+  button:active {
+    transform: translateY(0);
+  }
+  
+  button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+    font-size: 16px;
+  }
+  
+  button.primary:hover {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+  }
+  
+  button:disabled {
+    opacity: .4;
+    cursor: not-allowed;
+    transform: none !important;
+  }
+  
+  .presets {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  
+  .preset-btn {
+    padding: 10px 8px;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 10px;
+  }
+  
+  .options {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--track);
+  }
+  
+  .checkbox-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+  }
+  
+  input[type=checkbox] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: var(--accent);
+  }
+  
+  .checkbox-wrapper label {
+    font-size: 13px;
+    color: var(--muted);
+    cursor: pointer;
+    margin: 0;
+  }
+  
+  @media (max-width: 480px) {
+    .card {
+      padding: 24px;
+    }
+    
+    .controls {
+      flex-wrap: wrap;
+    }
+    
+    button.primary {
+      flex: 1 1 100%;
+    }
+  }
+  
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .7; }
+  }
+  
+  .timer-readout.pulsing {
+    animation: pulse 1s ease-in-out infinite;
+  }
+</style>
+</head>
+<body>
+  <div class="app">
+    <div class="card">
+      <div class="timer-display">
+        <h1 class="timer-readout" id="readout">00:01:00</h1>
+      </div>
+
+      <canvas id="dial" width="600" height="600" aria-label="Visual timer"></canvas>
+
+      <div class="inputs">
+        <div class="input-group">
+          <label for="hh">Hours</label>
+          <input id="hh" type="number" min="0" max="99" step="1" value="0" />
+        </div>
+        <div class="input-group">
+          <label for="mm">Minutes</label>
+          <input id="mm" type="number" min="0" max="59" step="1" value="1" />
+        </div>
+        <div class="input-group">
+          <label for="ss">Seconds</label>
+          <input id="ss" type="number" min="0" max="59" step="1" value="0" />
+        </div>
+      </div>
+
+      <div class="controls">
+        <button id="start" class="primary">Start</button>
+        <button id="pause">Pause</button>
+        <button id="reset">Reset</button>
+      </div>
+
+      <div class="presets">
+        <button class="preset-btn" data-preset="60">1 min</button>
+        <button class="preset-btn" data-preset="180">3 min</button>
+        <button class="preset-btn" data-preset="300">5 min</button>
+        <button class="preset-btn" data-preset="600">10 min</button>
+      </div>
+
+      <div class="options">
+        <div class="checkbox-wrapper">
+          <input id="beep" type="checkbox" checked />
+          <label for="beep">Sound alert</label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('dial');
+  const ctx = canvas.getContext('2d');
+  const readout = document.getElementById('readout');
+  const elH = document.getElementById('hh');
+  const elM = document.getElementById('mm');
+  const elS = document.getElementById('ss');
+  const btnStart = document.getElementById('start');
+  const btnPause = document.getElementById('pause');
+  const btnReset = document.getElementById('reset');
+  const beepChk = document.getElementById('beep');
+  
+  document.querySelectorAll('[data-preset]').forEach(b => {
+    b.addEventListener('click', () => setFromSeconds(+b.dataset.preset));
+  });
+
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  const audio = AudioCtx ? new AudioCtx() : null;
+
+  const state = {
+    running: false,
+    paused: false,
+    durationMs: 60_000,
+    endAt: 0,
+    remainingMs: 60_000,
+    startedAt: 0,
+    raf: 0,
+  };
+
+  function clamp(n, a, b) { return Math.max(a, Math.min(b, n)); }
+  
+  function fmt(ms) {
+    const total = Math.max(0, Math.round(ms / 1000));
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const s = total % 60;
+    return (h ? String(h).padStart(2, '0') + ':' : '') + 
+           String(m).padStart(2, '0') + ':' + 
+           String(s).padStart(2, '0');
+  }
+  
+  function readInputsToMs() {
+    const h = clamp(parseInt(elH.value || 0, 10), 0, 99);
+    const m = clamp(parseInt(elM.value || 0, 10), 0, 59);
+    const s = clamp(parseInt(elS.value || 0, 10), 0, 59);
+    const total = h * 3600 + m * 60 + s;
+    return Math.max(1, total) * 1000;
+  }
+  
+  function setFromSeconds(sec) {
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = sec % 60;
+    elH.value = h;
+    elM.value = m;
+    elS.value = s;
+    preview();
+  }
+
+  function beep() {
+    if (!beepChk.checked || !audio) return;
+    const now = audio.currentTime;
+    const o = audio.createOscillator();
+    const g = audio.createGain();
+    o.connect(g);
+    g.connect(audio.destination);
+    o.type = 'sine';
+    o.frequency.setValueAtTime(880, now);
+    o.frequency.exponentialRampToValueAtTime(1760, now + 0.18);
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.exponentialRampToValueAtTime(0.3, now + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
+    o.start(now);
+    o.stop(now + 0.24);
+  }
+
+  function resizeCanvas() {
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    const rect = canvas.getBoundingClientRect();
+    let cssSize = rect.width;
+    if (!cssSize || cssSize < 2) {
+      const parent = canvas.parentElement;
+      cssSize = (parent && parent.clientWidth) ? parent.clientWidth : 480;
+    }
+    canvas.width = Math.round(cssSize * dpr);
+    canvas.height = Math.round(cssSize * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw();
+  }
+  
+  window.addEventListener('resize', resizeCanvas);
+  new ResizeObserver(resizeCanvas).observe(canvas);
+
+  function draw() {
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    ctx.clearRect(0, 0, w, h);
+
+    const size = Math.min(w, h);
+    const cx = size / 2, cy = size / 2;
+    const rOuter = size * 0.42;
+    const ring = Math.max(12, size * 0.04);
+
+    // Background circle
+    ctx.beginPath();
+    ctx.arc(cx, cy, rOuter, 0, Math.PI * 2);
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--face');
+    ctx.fill();
+
+    // Progress arc
+    const dur = state.durationMs || 1;
+    const rem = clamp(state.remainingMs, 0, dur);
+    const remainingFrac = rem / dur;
+    
+    if (remainingFrac > 0) {
+      const start = -Math.PI / 2;
+      const end = start + remainingFrac * 2 * Math.PI;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, rOuter, start, end, false);
+      ctx.closePath();
+      
+      // Gradient fill
+      const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, rOuter);
+      const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent');
+      const accentHover = getComputedStyle(document.documentElement).getPropertyValue('--accent-hover');
+      gradient.addColorStop(0, accentHover);
+      gradient.addColorStop(1, accentColor);
+      ctx.fillStyle = gradient;
+      ctx.fill();
+    }
+
+    // Outer ring
+    ctx.beginPath();
+    ctx.arc(cx, cy, rOuter, 0, Math.PI * 2);
+    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--track');
+    ctx.lineWidth = ring;
+    ctx.stroke();
+
+    readout.textContent = fmt(rem);
+  }
+
+  function loop(now) {
+    if (!state.running) return;
+    if (!state.paused) {
+      state.remainingMs = Math.max(0, state.endAt - now);
+      if (state.remainingMs === 0) {
+        state.running = false;
+        readout.classList.remove('running');
+        readout.classList.add('pulsing');
+        draw();
+        beep();
+        setTimeout(() => readout.classList.remove('pulsing'), 3000);
+        return;
+      }
+    }
+    draw();
+    state.raf = requestAnimationFrame(loop);
+  }
+
+  function start() {
+    if (audio && audio.state === 'suspended') {
+      audio.resume().catch(() => {});
+    }
+    state.durationMs = readInputsToMs();
+    state.remainingMs = state.durationMs;
+    state.startedAt = performance.now();
+    state.endAt = state.startedAt + state.durationMs;
+    state.running = true;
+    state.paused = false;
+    readout.classList.add('running');
+    readout.classList.remove('pulsing');
+    cancelAnimationFrame(state.raf);
+    state.raf = requestAnimationFrame(loop);
+    draw();
+  }
+  
+  function pause() {
+    if (!state.running) return;
+    if (!state.paused) {
+      state.paused = true;
+      state.remainingMs = Math.max(0, state.endAt - performance.now());
+      readout.classList.remove('running');
+    } else {
+      state.paused = false;
+      state.endAt = performance.now() + state.remainingMs;
+      readout.classList.add('running');
+      cancelAnimationFrame(state.raf);
+      state.raf = requestAnimationFrame(loop);
+    }
+    btnPause.textContent = state.paused ? 'Resume' : 'Pause';
+    draw();
+  }
+  
+  function reset() {
+    state.running = false;
+    state.paused = false;
+    state.durationMs = readInputsToMs();
+    state.remainingMs = state.durationMs;
+    readout.classList.remove('running', 'pulsing');
+    cancelAnimationFrame(state.raf);
+    btnPause.textContent = 'Pause';
+    draw();
+  }
+  
+  function preview() {
+    if (state.running) return;
+    state.durationMs = readInputsToMs();
+    state.remainingMs = state.durationMs;
+    draw();
+  }
+
+  btnStart.addEventListener('click', start);
+  btnPause.addEventListener('click', pause);
+  btnReset.addEventListener('click', reset);
+  [elH, elM, elS].forEach(el => el.addEventListener('input', preview));
+
+  resizeCanvas();
+  preview();
+})();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./service-worker.js')
+      .then(reg => console.log('Service Worker registered'))
+      .catch(err => console.log('Service Worker registration failed'));
+  });
+}
+</script>
+
+</body>
+</html>
